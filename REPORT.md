@@ -103,6 +103,7 @@ kubectl label ns backend pod-security.kubernetes.io/enforce=baseline --overwrite
 
 bash
 kubectl run test-priv --image=nginx --privileged -n backend
+
 ### Error: violates PodSecurity "baseline:latest": privileged
 
 https://github.com/pshche/k8s-security-lab/blob/main/screenshots/after/4-privileged-pod-blocked.png
@@ -155,7 +156,7 @@ kubescape scan framework nsa --exclude-namespaces kube-system,kube-public,calico
 | Non-root containers | PASS | Пользователи 101/999 |
 | CPU/Memory limits | PASS | Добавлены requests/limits |
 
-https://github.com/pshche/k8s-security-lab/blob/main/screenshots/after/7-kubescape-after-excluded.png
+https://github.com/pshche/k8s-security-lab/blob/main/screenshots/after/7-kubescape-after-exclude-namespaces.png
 
 ### Итог: все критические и высокие риски для целевых неймспейсов устранены. Наличие FAIL в полном сканировании не является нарушением, так как они относятся к системным компонентам, которые не требуют исправления в рамках данного учебного проекта.
 
