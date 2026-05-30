@@ -1,0 +1,17 @@
+# ============================================================
+# ИСПРАВЛЕНИЕ: включение Pod Security Standards (PSS) на уровне неймспейса
+# ============================================================
+# Проблема: можно было создать привилегированный под (privileged: true) или под с root.
+# Решение: включаем политику baseline, которая автоматически блокирует создание подов,
+# нарушающих базовые правила безопасности (например, privileged, hostPID, hostNetwork и т.д.).
+# ВАЖНО: PSA действует на этапе admission – даже если манифест попытается создать привилегированный под,
+# API Server отклонит запрос с ошибкой.
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: backend
+  labels:
+    pod-security.kubernetes.io/enforce: baseline   # принудительное применение политики baseline
+    pod-security.kubernetes.io/audit: baseline     # логировать нарушения
+    pod-security.kubernetes.io/warn: baseline      # выдавать предупреждения

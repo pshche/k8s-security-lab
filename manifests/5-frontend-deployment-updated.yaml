@@ -1,0 +1,49 @@
+# ============================================================
+# ИСПРАВЛЕНИЕ ДЛЯ FRONTEND:
+# - использует default ServiceAccount -> переключён на frontend-sa
+# - hardcoded пароль -> вынесен в Secret
+# - отсутствует SecurityContext -> добавлен
+# - нет requests/limits -> добавлены
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      serviceAccountName: frontend-sa
+      containers:
+      - name: frontend
+        image: nginxinc/nginx-unprivileged:1.25
+        ports:
+        - containerPort: 8080                     # unprivileged образ использует порт 8080
+        env:
+        - name: DB_HOST
+          value: backend.backend.svc.cluster.local
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: frontend-db-secret
+              key: DB_PASSWORD
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 101                         # пользователь nginx
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"

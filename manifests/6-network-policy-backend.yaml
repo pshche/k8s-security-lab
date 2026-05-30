@@ -1,0 +1,28 @@
+# ============================================================
+# ИСПРАВЛЕНИЕ: отсутствует сетевая изоляция – любой под в кластере мог обращаться к backend
+# ============================================================
+# Цель: разрешить доступ к backend (порт 5432) только из подов frontend,
+# а весь остальной трафик (и входящий, и исходящий) запретить по умолчанию.
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-allow-frontend
+  namespace: backend
+spec:
+  podSelector: {}   # политика применяется ко всем подам в неймспейсе backend
+  policyTypes:
+  - Ingress
+  # Если нужно запретить и исходящий трафик – добавьте - Egress (опционально)
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: frontend   # разрешаем только из неймспейса frontend
+      podSelector:
+        matchLabels:
+          app: frontend                           # и только от подов с меткой app=frontend
+    ports:
+    - protocol: TCP
+      port: 5432                                  # порт postgres
+  # ВАЖНО: без дополнительных правил ingress весь остальной входящий трафик будет заблокирован.

@@ -1,0 +1,52 @@
+# ============================================================
+# ИСПРАВЛЕНИЕ ДЛЯ BACKEND: привилегированный контейнер, отсутствие SecurityContext,
+# секрет в ConfigMap, отсутствие requests/limits.
+# ============================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      # ВАЖНО: SecurityContext на уровне пода – запускаем от non-root пользователя (postgres:15 использует uid 999)
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999      # пользователь postgres в образе postgres:15
+        fsGroup: 999        # группа для монтирования томов
+      containers:
+      - name: backend
+        image: postgres:15
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            # ИСПРАВЛЕНИЕ: вместо configMapKeyRef используем secretKeyRef – данные теперь из Secret
+            secretKeyRef:
+              name: db-secret
+              key: password
+        # ИСПРАВЛЕНИЕ: добавлен SecurityContext на уровне контейнера
+        securityContext:
+          allowPrivilegeEscalation: false   # запрещаем повышение привилегий
+          runAsNonRoot: true                # явно требуем запуск от non-root
+          capabilities:
+            drop: ["ALL"]                   # удаляем все опасные capabilities
+        # ИСПРАВЛЕНИЕ: добавлены requests/limits для предотвращения проблем «шумный сосед»
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        # ВАЖНО: поле privileged: true было УДАЛЕНО – контейнер больше не имеет привилегий хоста

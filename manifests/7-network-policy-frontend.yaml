@@ -1,0 +1,33 @@
+# ============================================================
+# ИСПРАВЛЕНИЕ: полная изоляция неймспейса frontend – запрет на любой входящий и исходящий трафик
+# ============================================================
+# Обоснование: frontend не должен принимать внешний трафик напрямую (только через Ingress/API gateway)
+# и не должен инициировать соединения наружу (кроме как к backend – это разрешено отдельной политикой).
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-deny-all
+  namespace: frontend
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress: []
+  egress:
+  - to:
+    - namespaceSelector: {}          # разрешить DNS (kube-dns) для тестов
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - port: 53
+      protocol: UDP
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: backend
+    ports:
+    - port: 5432
+      protocol: TCP
