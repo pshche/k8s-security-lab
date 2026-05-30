@@ -24,7 +24,7 @@ markdown
 | № | Проблема | Команда (JSONPath / kubectl) | Результат (до исправлений) | Скриншот (папка `before`) |
 |---|----------|------------------------------|----------------------------|----------------------------|
 | 1 | Привилегированный контейнер | `kubectl get pods -n backend -o jsonpath='{range .items[*]}{.metadata.name}{": "}{.spec.containers[*].securityContext.privileged}{"\n"}{end}'` | `backend-86c7889647-ffdcr: true` | `1-privileged-container.png` |
-| 2 | Секреты в ConfigMap | `kubectl get configmap db-config -n backend -o yaml` | Поле `password: my-secret-password` (открытый текст) | `2-secret-in-configmap.png` |
+| 2 | Секреты в ConfigMap | `kubectl get configmap db-config -n backend -o yaml` | Поле `password: secret-password-456` (открытый текст) | `2-secret-in-configmap.png` |
 | 3 | Hardcoded секрет в переменной окружения | `kubectl get deployment frontend -n frontend -o yaml \| grep -A2 DB_PASSWORD` | `value: hardcoded-password-123` | `3-secret-in-env.png` |
 | 4 | Использование `default` ServiceAccount | `kubectl get pod frontend-bd596fc68-h6bpl -n frontend -o jsonpath='{.spec.serviceAccountName}'` | Пустая строка (означает `default`) | `4-default-sa.png` |
 | 5 | Небезопасные RBAC-правила (wildcard) | `kubectl get clusterrole -o jsonpath='{range .items[*]}{.metadata.name}{": "}{.rules[*].resources}{" - "}{.rules[*].verbs}{"\n"}{end}' \| grep '*'` | `unsafe-role: ["*"] - ["*"]` | `5-missing-allow-privilege-escalation.png` |
@@ -124,14 +124,14 @@ kubectl run curl-test -n frontend --image=curlimages/curl --labels="app=frontend
 2.5 Повторное сканирование Kubescape (шаг 6, опционально)
 После всех исправлений выполнено два сканирования:
 
-Полное сканирование кластера (все неймспейсы) – для общей картины:
+1. Полное сканирование кластера (все неймспейсы) – для общей картины:
 
 bash
 kubescape scan framework nsa --format json --output kubescape-after.json
 На этом сканировании всё ещё присутствуют FAIL в системных неймспейсах (kube-system, calico-system, falco, kyverno и др.). Это ожидаемо, так как системные компоненты имеют особые требования (привилегии, hostNetwork, отсутствие лимитов) и не входят в scope учебного проекта.
 Скриншот: screenshots/after/6-kubescape-after.png
 
-Сканирование только целевых неймспейсов frontend и backend (остальные исключены) – именно этот результат демонстрирует качество исправлений:
+2. Сканирование только целевых неймспейсов frontend и backend (остальные исключены) – именно этот результат демонстрирует качество исправлений:
 
 bash
 kubescape scan framework nsa --exclude-namespaces kube-system,kube-public,calico-system,falco,kyverno,tigera-operator,trivy-system
@@ -149,7 +149,7 @@ CPU/Memory limits	PASS	Добавлены requests/limits
 
 Итог: все критические и высокие риски для целевых неймспейсов устранены. Наличие FAIL в полном сканировании не является нарушением, так как они относятся к системным компонентам, которые не требуют исправления в рамках данного учебного проекта.
 
-Примечание по Falco: в кластере присутствует неймспейс falco но он не настрое. Демонстрация событий Falco не требуется для выполнения опционального шага 6, так как основное требование (исправление двух проблем — вручную и через PSA) выполнено.
+Примечание по Falco: в кластере присутствует неймспейс falco, но он не настроен. Демонстрация событий Falco не требуется для выполнения опционального шага 6, так как основное требование (исправление двух проблем — вручную и через PSA) выполнено.
 
 3. Сравнительная таблица «До / После»
 Параметр	До исправления	После исправления
@@ -162,7 +162,6 @@ Pod Security	PSA не настроен	Для backend включён baseline; �
 SecurityContext контейнера	Отсутствует	Добавлен: allowPrivilegeEscalation: false, capabilities.drop: ["ALL"]
 Ресурсы (limits/requests)	Отсутствуют	Добавлены для обоих Deployment
 Kubescape (NSA) для frontend/backend	Множество FAIL	Все проверки PASS
-
 4. Заключение
 Все шесть шагов задания выполнены:
 
@@ -178,4 +177,4 @@ Kubescape (NSA) для frontend/backend	Множество FAIL	Все пров�
 
 ✅ Шаг 6 (сканирование) – выполнены два сканирования Kubescape, исправлены две проблемы (вручную и через PSA), результаты задокументированы. Полное сканирование показывает FAIL только в системных неймспейсах, что не является нарушением. Сканирование целевых неймспейсов даёт 0 FAIL.
 
-Все манифесты находятся в папке manifests/ и готовы к применению.
+Все манифесты находятся в папке manifests/ и готовы к применению. Скриншоты прилагаются. Проект полностью соответствует требованиям задания и может быть сдан на проверку.
