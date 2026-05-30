@@ -31,7 +31,6 @@ markdown
 
 ### 1.3 Результат сканирования Kubescape (до исправлений)
 
-```bash
 kubescape scan framework nsa --format json --output kubescape-before.json
 Основные FAIL-проверки (выявленные проблемы):
 
