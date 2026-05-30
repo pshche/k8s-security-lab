@@ -23,44 +23,13 @@ markdown
 
 | № | Проблема | Команда (JSONPath / kubectl) | Результат (до исправлений) | Скриншот (папка `before`) |
 |---|----------|------------------------------|----------------------------|----------------------------|
-| 1 | Привилегированный контейнер | `kubectl get pods -n backend -o jsonpath='{range .items[*]}{.metadata.name}{": "}{.spec.containers[*].securityContext.privileged}{"\n"}{end}'` | `backend-86c7889647-ffdcr: true` | [1-privileged-container.png](https://github.com/pshche/k8s-security-lab/blob/main/screenshots/before/1-privileged-container.png) |
-| 2 | Секреты в ConfigMap | `kubectl get configmap db-config -n backend -o yaml` | Поле `password: secret-password-456` (открытый текст) | [2-secret-in-configmap.png](https://github.com/pshche/k8s-security-lab/blob/main/screenshots/before/2-secret-in-configmap.png) |
-| 3 | Hardcoded секрет в переменной окружения | `kubectl get deployment frontend -n frontend -o yaml \| grep -A2 DB_PASSWORD` | `value: hardcoded-password-123` | [3-secret-in-env.png](https://github.com/pshche/k8s-security-lab/blob/main/screenshots/before/3-secret-in-env.png) |
-| 4 | Использование `default` ServiceAccount | `kubectl get pod frontend-bd596fc68-h6bpl -n frontend -o jsonpath='{.spec.serviceAccountName}'` | Пустая строка (означает `default`) | [4-default-sa.png](https://github.com/pshche/k8s-security-lab/blob/main/screenshots/before/4-default-sa.png) |
-| 5 | Небезопасные RBAC-правила (wildcard) | `kubectl get clusterrole -o jsonpath='{range .items[*]}{.metadata.name}{": "}{.rules[*].resources}{" - "}{.rules[*].verbs}{"\n"}{end}' \| grep '*'` | `unsafe-role: ["*"] - ["*"]` | [5-missing-allow-privilege-escalation.png](https://github.com/pshche/k8s-security-lab/blob/main/screenshots/before/5-missing-allow-privilege-escalation.png) |
-
-#markdown
-# Отчёт по учебному проекту: Аудит и усиление безопасности Kubernetes-кластера
-
-**Окружение:** Kubernetes (локальный кластер), неймспейсы `frontend` и `backend`.
-
----
-
-## 1. Начальный аудит (шаг 1)
-
-### 1.1 Выявленные проблемы безопасности
-
-С помощью `kubectl` и `JSONPath` обнаружены следующие пять типов проблем:
-
-| № | Тип проблемы | Где обнаружено | Риск | Приоритет |
-|---|--------------|----------------|------|------------|
-| 1 | Привилегированный контейнер | Deployment `backend` (`privileged: true`) | Полный доступ к узлу | Критический |
-| 2 | Секреты в ConfigMap | ConfigMap `db-config` (backend) – пароль в открытом виде | Утечка учётных данных БД | Высокий |
-| 3 | Hardcoded секрет в переменной окружения | Deployment `frontend` – `DB_PASSWORD=hardcoded-password-123` | Пароль виден в манифестах и логах | Высокий |
-| 4 | Использование `default` ServiceAccount | Поды `frontend` и `backend` | Эскалация привилегий | Средний |
-| 5 | Небезопасные RBAC-правила (wildcard) | ClusterRole `unsafe-role` с `["*"]` на `["*"]` | Полный контроль над кластером | Критический |
-
-### 1.2 Команды диагностики и скриншоты
-
-| № | Проблема | Команда (JSONPath / kubectl) | Результат (до исправлений) | Скриншот (папка `before`) |
-|---|----------|------------------------------|----------------------------|----------------------------|
 | 1 | Привилегированный контейнер | `kubectl get pods -n backend -o jsonpath='{range .items[*]}{.metadata.name}{": "}{.spec.containers[*].securityContext.privileged}{"\n"}{end}'` | `backend-86c7889647-ffdcr: true` | [1-privileged-container.png](screenshots/before/1-privileged-container.png) |
 | 2 | Секреты в ConfigMap | `kubectl get configmap db-config -n backend -o yaml` | Поле `password: secret-password-456` (открытый текст) | [2-secret-in-configmap.png](screenshots/before/2-secret-in-configmap.png) |
 | 3 | Hardcoded секрет в переменной окружения | `kubectl get deployment frontend -n frontend -o yaml \| grep -A2 DB_PASSWORD` | `value: hardcoded-password-123` | [3-secret-in-env.png](screenshots/before/3-secret-in-env.png) |
 | 4 | Использование `default` ServiceAccount | `kubectl get pod frontend-bd596fc68-h6bpl -n frontend -o jsonpath='{.spec.serviceAccountName}'` | Пустая строка (означает `default`) | [4-default-sa.png](screenshots/before/4-default-sa.png) |
 | 5 | Небезопасные RBAC-правила (wildcard) | `kubectl get clusterrole -o jsonpath='{range .items[*]}{.metadata.name}{": "}{.rules[*].resources}{" - "}{.rules[*].verbs}{"\n"}{end}' \| grep '*'` | `unsafe-role: ["*"] - ["*"]` | [5-missing-allow-privilege-escalation.png](screenshots/before/5-missing-allow-privilege-escalation.png) |
 
-## 1.3 Результат сканирования Kubescape (до исправлений)
+### 1.3 Результат сканирования Kubescape (до исправлений)
 
 ```bash
 kubescape scan framework nsa \
