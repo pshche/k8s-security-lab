@@ -23,18 +23,16 @@ markdown
 
 | № | Проблема | Команда (JSONPath / kubectl) | Результат (до исправлений) | Скриншот (папка `before`) |
 |---|----------|------------------------------|----------------------------|----------------------------|
-| 1 | Привилегированный контейнер | `kubectl get pods -n backend -o jsonpath='{range .items[*]}{.metadata.name}{": "}{.spec.containers[*].securityContext.privileged}{"\n"}{end}'` | `backend-86c7889647-ffdcr: true` | [1-privileged-container.png](screenshots/before/1-privileged-container.png) |
-| 2 | Секреты в ConfigMap | `kubectl get configmap db-config -n backend -o yaml` | Поле `password: secret-password-456` (открытый текст) | [2-secret-in-configmap.png](screenshots/before/2-secret-in-configmap.png) |
-| 3 | Hardcoded секрет в переменной окружения | `kubectl get deployment frontend -n frontend -o yaml \| grep -A2 DB_PASSWORD` | `value: hardcoded-password-123` | [3-secret-in-env.png](screenshots/before/3-secret-in-env.png) |
-| 4 | Использование `default` ServiceAccount | `kubectl get pod frontend-bd596fc68-h6bpl -n frontend -o jsonpath='{.spec.serviceAccountName}'` | Пустая строка (означает `default`) | [4-default-sa.png](screenshots/before/4-default-sa.png) |
-| 5 | Небезопасные RBAC-правила (wildcard) | `kubectl get clusterrole -o jsonpath='{range .items[*]}{.metadata.name}{": "}{.rules[*].resources}{" - "}{.rules[*].verbs}{"\n"}{end}' \| grep '*'` | `unsafe-role: ["*"] - ["*"]` | [5-missing-allow-privilege-escalation.png](screenshots/before/5-missing-allow-privilege-escalation.png) |
+| 1 | Привилегированный контейнер | `kubectl get pods -n backend -o jsonpath='{range .items[*]}{.metadata.name}{": "}{.spec.containers[*].securityContext.privileged}{"\n"}{end}'` | `backend-86c7889647-ffdcr: true` | [1-privileged-container.png](https://github.com/pshche/k8s-security-lab/blob/main/screenshots/before/1-privileged-container.png) |
+| 2 | Секреты в ConfigMap | `kubectl get configmap db-config -n backend -o yaml` | Поле `password: secret-password-456` (открытый текст) | [2-secret-in-configmap.png](https://github.com/pshche/k8s-security-lab/blob/main/screenshots/before/2-secret-in-configmap.png) |
+| 3 | Hardcoded секрет в переменной окружения | `kubectl get deployment frontend -n frontend -o yaml \| grep -A2 DB_PASSWORD` | `value: hardcoded-password-123` | [3-secret-in-env.png](https://github.com/pshche/k8s-security-lab/blob/main/screenshots/before/3-secret-in-env.png) |
+| 4 | Использование `default` ServiceAccount | `kubectl get pod frontend-bd596fc68-h6bpl -n frontend -o jsonpath='{.spec.serviceAccountName}'` | Пустая строка (означает `default`) | [4-default-sa.png](https://github.com/pshche/k8s-security-lab/blob/main/screenshots/before/4-default-sa.png) |
+| 5 | Небезопасные RBAC-правила (wildcard) | `kubectl get clusterrole -o jsonpath='{range .items[*]}{.metadata.name}{": "}{.rules[*].resources}{" - "}{.rules[*].verbs}{"\n"}{end}' \| grep '*'` | `unsafe-role: ["*"] - ["*"]` | [5-missing-allow-privilege-escalation.png](https://github.com/pshche/k8s-security-lab/blob/main/screenshots/before/5-missing-allow-privilege-escalation.png) |
 
 ### 1.3 Результат сканирования Kubescape (до исправлений)
 
 ```bash
-kubescape scan framework nsa \
-  --format json \
-  --output kubescape-before.json
+kubescape scan framework nsa --format json --output kubescape-before.json
 Основные FAIL-проверки (выявленные проблемы):
 
 C-0004 – Privileged container
@@ -44,6 +42,8 @@ C-0013 – Secrets in environment variables
 C-0049 – Default service account used
 
 C-0050 – Missing security context
+
+https://github.com/pshche/k8s-security-lab/blob/main/screenshots/before/6-kubescape-before.png
 
 Kubescape до исправлений
 
@@ -64,11 +64,11 @@ Deployment frontend обновлён: serviceAccountName: frontend-sa.
 Проверка:
 
 bash
-kubectl auth can-i get pods \
-  --as=system:serviceaccount:frontend:frontend-sa -n frontend   # yes
-kubectl auth can-i delete pods \
-  --as=system:serviceaccount:frontend:frontend-sa -n frontend # no
-Скриншот проверки RBAC
+kubectl auth can-i get pods --as=system:serviceaccount:frontend:frontend-sa -n frontend   # yes
+kubectl auth can-i delete pods --as=system:serviceaccount:frontend:frontend-sa -n frontend # no
+
+https://github.com/pshche/k8s-security-lab/blob/main/screenshots/after/2-rbac-check.png
+
 
 2.2 Миграция секретов (шаг 3)
 Манифесты: 2-backend-secret.yaml, 3-frontend-secret.yaml, 4-backend-deployment-updated.yaml, 5-frontend-deployment-updated.yaml
@@ -86,7 +86,8 @@ Deployment frontend обновлён: secretKeyRef вместо hardcoded value.
 bash
 kubectl get deployment frontend -n frontend -o yaml | grep -A2 DB_PASSWORD   # secretKeyRef
 kubectl exec frontend-xxx -n frontend -- env | grep DB_PASSWORD   # пароль из Secret
-Скриншот миграции секретов
+
+https://github.com/pshche/k8s-security-lab/blob/main/screenshots/after/3-secrets-migration.png
 
 2.3 Безопасность подов (шаг 4)
 Манифесты: 4-backend-deployment-updated.yaml, 5-frontend-deployment-updated.yaml, 8-psa-namespace-backend.yaml
@@ -98,14 +99,14 @@ kubectl exec frontend-xxx -n frontend -- env | grep DB_PASSWORD   # пароль
 Для неймспейса backend включён PSA уровня baseline:
 
 bash
-kubectl label ns backend \
-  pod-security.kubernetes.io/enforce=baseline --overwrite
+kubectl label ns backend pod-security.kubernetes.io/enforce=baseline --overwrite
 Проверка PSA: блокировка привилегированного пода
 
 bash
 kubectl run test-priv --image=nginx --privileged -n backend
 # Error: violates PodSecurity "baseline:latest": privileged
-Скриншот блокировки привилегированного пода
+
+https://github.com/pshche/k8s-security-lab/blob/main/screenshots/after/4-privileged-pod-blocked.png
 
 2.4 Сетевая изоляция (шаг 5, опционально)
 Манифесты: 6-network-policy-backend.yaml, 7-network-policy-frontend.yaml
@@ -118,16 +119,14 @@ backend-allow-frontend: разрешён ingress только от подов с
 
 bash
 # Из default – заблокировано
-kubectl run test-curl -n default --image=curlimages/curl --rm -it -- \
-  curl --connect-timeout 5 backend.backend.svc.cluster.local:5432
+kubectl run test-curl -n default --image=curlimages/curl --rm -it -- curl --connect-timeout 5 backend.backend.svc.cluster.local:5432
 # Результат: Connection timed out
 
 # Из frontend – временный под с меткой app=frontend устанавливает соединение
-kubectl run curl-test -n frontend --image=curlimages/curl \
-  --labels="app=frontend" --rm -it -- \
-  curl -v --connect-timeout 5 backend.backend.svc.cluster.local:5432
+kubectl run curl-test -n frontend --image=curlimages/curl --labels="app=frontend" --rm -it -- curl -v --connect-timeout 5 backend.backend.svc.cluster.local:5432
 # Результат: Established connection ...
-Скриншот теста сетевых политик
+
+https://github.com/pshche/k8s-security-lab/blob/main/screenshots/after/5-network-policy-test.png
 
 2.5 Повторное сканирование Kubescape (шаг 6, опционально)
 После всех исправлений выполнено два сканирования:
@@ -135,23 +134,15 @@ kubectl run curl-test -n frontend --image=curlimages/curl \
 1. Полное сканирование кластера (все неймспейсы) – для общей картины:
 
 bash
-kubescape scan framework nsa \
-  --format json \
-  --output kubescape-after.json
-На этом сканировании всё ещё присутствуют FAIL в системных неймспейсах
-(kube-system, calico-system, falco, kyverno и др.). Это ожидаемо,
-так как системные компоненты имеют особые требования (привилегии,
-hostNetwork, отсутствие лимитов) и не входят в scope учебного проекта.
+kubescape scan framework nsa --format json --output kubescape-after.json
+На этом сканировании всё ещё присутствуют FAIL в системных неймспейсах (kube-system, calico-system, falco, kyverno и др.). Это ожидаемо, так как системные компоненты имеют особые требования (привилегии, hostNetwork, отсутствие лимитов) и не входят в scope учебного проекта.
 
-Kubescape после исправлений (полное)
+https://github.com/pshche/k8s-security-lab/blob/main/screenshots/after/6-kubescape-after.png
 
-2. Сканирование только целевых неймспейсов frontend и backend
-(остальные исключены) – именно этот результат демонстрирует качество
-исправлений:
+2. Сканирование только целевых неймспейсов frontend и backend (остальные исключены) – именно этот результат демонстрирует качество исправлений:
 
 bash
-kubescape scan framework nsa \
-  --exclude-namespaces kube-system,kube-public,calico-system,falco,kyverno,tigera-operator,trivy-system
+kubescape scan framework nsa --exclude-namespaces kube-system,kube-public,calico-system,falco,kyverno,tigera-operator,trivy-system
 Результат: 0 FAIL, все проверки PASS.
 
 Контроль	Статус	Комментарий
@@ -162,17 +153,12 @@ SecurityContext	PASS	Добавлен в оба Deployment
 Network Policies	PASS	Созданы и проверены
 Non-root containers	PASS	Пользователи 101/999
 CPU/Memory limits	PASS	Добавлены requests/limits
-Kubescape только для frontend/backend
 
-Итог: все критические и высокие риски для целевых неймспейсов
-устранены. Наличие FAIL в полном сканировании не является нарушением,
-так как они относятся к системным компонентам, которые не требуют
-исправления в рамках данного учебного проекта.
+https://github.com/pshche/k8s-security-lab/blob/main/screenshots/after/7-kubescape-after-excluded.png
 
-Примечание по Falco: в кластере присутствует неймспейс falco,
-но он не настроен. Демонстрация событий Falco не требуется для
-выполнения опционального шага 6, так как основное требование
-(исправление двух проблем — вручную и через PSA) выполнено.
+Итог: все критические и высокие риски для целевых неймспейсов устранены. Наличие FAIL в полном сканировании не является нарушением, так как они относятся к системным компонентам, которые не требуют исправления в рамках данного учебного проекта.
+
+Примечание по Falco: в кластере присутствует неймспейс falco, но он не настроен. Демонстрация событий Falco не требуется для выполнения опционального шага 6, так как основное требование (исправление двух проблем — вручную и через PSA) выполнено.
 
 3. Сравнительная таблица «До / После»
 Параметр	До исправления	После исправления
@@ -185,30 +171,21 @@ Pod Security	PSA не настроен	Для backend включён baseline; �
 SecurityContext контейнера	Отсутствует	Добавлен: allowPrivilegeEscalation: false, capabilities.drop: ["ALL"]
 Ресурсы (limits/requests)	Отсутствуют	Добавлены для обоих Deployment
 Kubescape (NSA) для frontend/backend	Множество FAIL	Все проверки PASS
+
+
 4. Заключение
 Все шесть шагов задания выполнены:
 
-✅ Шаг 1 (диагностика) – выявлены 5 типов проблем, использованы
-JSONPath-команды, Kubescape запущен, отчёт создан.
+✅ Шаг 1 (диагностика) – выявлены 5 типов проблем, использованы JSONPath-команды, Kubescape запущен, отчёт создан.
 
-✅ Шаг 2 (RBAC) – созданы ServiceAccount, Role (без wildcard),
-RoleBinding, Deployment обновлён, права проверены.
+✅ Шаг 2 (RBAC) – созданы ServiceAccount, Role (без wildcard), RoleBinding, Deployment обновлён, права проверены.
 
-✅ Шаг 3 (миграция секретов) – созданы Secrets, Deployments
-используют secretKeyRef, доступность проверена.
+✅ Шаг 3 (миграция секретов) – созданы Secrets, Deployments используют secretKeyRef, доступность проверена.
 
-✅ Шаг 4 (безопасность подов) – удалён privileged, добавлен
-securityContext, включён PSA baseline, блокировка подтверждена.
+✅ Шаг 4 (безопасность подов) – удалён privileged, добавлен securityContext, включён PSA baseline, блокировка подтверждена.
 
-✅ Шаг 5 (сетевая изоляция) – созданы Network Policies, трафик из
-default блокируется, из frontend разрешён.
+✅ Шаг 5 (сетевая изоляция) – созданы Network Policies, трафик из default блокируется, из frontend разрешён.
 
-✅ Шаг 6 (сканирование) – выполнены два сканирования Kubescape,
-исправлены две проблемы (вручную и через PSA), результаты
-задокументированы. Полное сканирование показывает FAIL только
-в системных неймспейсах, что не является нарушением. Сканирование
-целевых неймспейсов даёт 0 FAIL.
+✅ Шаг 6 (сканирование) – выполнены два сканирования Kubescape, исправлены две проблемы (вручную и через PSA), результаты задокументированы. Полное сканирование показывает FAIL только в системных неймспейсах, что не является нарушением. Сканирование целевых неймспейсов даёт 0 FAIL.
 
-Все манифесты находятся в папке manifests/ и готовы к применению.
-Скриншоты прилагаются. Проект полностью соответствует требованиям
-задания и может быть сдан на проверку.
+Все манифесты находятся в папке manifests/ и готовы к применению. Скриншоты прилагаются. Проект полностью соответствует требованиям задания и может быть сдан на проверку.
