@@ -48,8 +48,8 @@ Kubescape до исправлений
 
 Исправление этих проблем описано в разделе 2.
 
-2. Применённые меры исправления
-2.1 Исправление RBAC (шаг 2)
+## 2. Применённые меры исправления
+### 2.1 Исправление RBAC (шаг 2)
 Манифест: manifests/1-rbac-frontend.yaml
 
 Создан ServiceAccount frontend-sa в frontend.
@@ -69,7 +69,7 @@ kubectl auth can-i delete pods --as=system:serviceaccount:frontend:frontend-sa -
 https://github.com/pshche/k8s-security-lab/blob/main/screenshots/after/2-rbac-check.png
 
 
-2.2 Миграция секретов (шаг 3)
+### 2.2 Миграция секретов (шаг 3)
 Манифесты: 2-backend-secret.yaml, 3-frontend-secret.yaml, 4-backend-deployment-updated.yaml, 5-frontend-deployment-updated.yaml
 
 Создан Secret db-secret в backend (пароль в base64).
@@ -88,7 +88,7 @@ kubectl exec frontend-xxx -n frontend -- env | grep DB_PASSWORD   # пароль
 
 https://github.com/pshche/k8s-security-lab/blob/main/screenshots/after/3-secrets-migration.png
 
-2.3 Безопасность подов (шаг 4)
+## 2.3 Безопасность подов (шаг 4)
 Манифесты: 4-backend-deployment-updated.yaml, 5-frontend-deployment-updated.yaml, 8-psa-namespace-backend.yaml
 
 Из Deployment backend удалён privileged: true.
@@ -103,11 +103,11 @@ kubectl label ns backend pod-security.kubernetes.io/enforce=baseline --overwrite
 
 bash
 kubectl run test-priv --image=nginx --privileged -n backend
-# Error: violates PodSecurity "baseline:latest": privileged
+### Error: violates PodSecurity "baseline:latest": privileged
 
 https://github.com/pshche/k8s-security-lab/blob/main/screenshots/after/4-privileged-pod-blocked.png
 
-2.4 Сетевая изоляция (шаг 5, опционально)
+## 2.4 Сетевая изоляция (шаг 5, опционально)
 Манифесты: 6-network-policy-backend.yaml, 7-network-policy-frontend.yaml
 
 frontend-deny-all: полная изоляция (запрещены ingress и egress).
@@ -117,20 +117,20 @@ backend-allow-frontend: разрешён ingress только от подов с
 Проверка изоляции:
 
 bash
-# Из default – заблокировано
+### Из default – заблокировано
 kubectl run test-curl -n default --image=curlimages/curl --rm -it -- curl --connect-timeout 5 backend.backend.svc.cluster.local:5432
-# Результат: Connection timed out
+Результат: Connection timed out
 
-# Из frontend – временный под с меткой app=frontend устанавливает соединение
+### Из frontend – временный под с меткой app=frontend устанавливает соединение
 kubectl run curl-test -n frontend --image=curlimages/curl --labels="app=frontend" --rm -it -- curl -v --connect-timeout 5 backend.backend.svc.cluster.local:5432
-# Результат: Established connection ...
+### Результат: Established connection ...
 
 https://github.com/pshche/k8s-security-lab/blob/main/screenshots/after/5-network-policy-test.png
 
-2.5 Повторное сканирование Kubescape (шаг 6, опционально)
+## 2.5 Повторное сканирование Kubescape (шаг 6, опционально)
 После всех исправлений выполнено два сканирования:
 
-1. Полное сканирование кластера (все неймспейсы) – для общей картины:
+### 1. Полное сканирование кластера (все неймспейсы) – для общей картины:
 
 bash
 kubescape scan framework nsa --format json --output kubescape-after.json
@@ -138,7 +138,7 @@ kubescape scan framework nsa --format json --output kubescape-after.json
 
 https://github.com/pshche/k8s-security-lab/blob/main/screenshots/after/6-kubescape-after.png
 
-2. Сканирование только целевых неймспейсов frontend и backend (остальные исключены) – именно этот результат демонстрирует качество исправлений:
+### 2. Сканирование только целевых неймспейсов frontend и backend (остальные исключены) – именно этот результат демонстрирует качество исправлений:
 
 bash
 kubescape scan framework nsa --exclude-namespaces kube-system,kube-public,calico-system,falco,kyverno,tigera-operator,trivy-system
@@ -155,11 +155,11 @@ CPU/Memory limits	PASS	Добавлены requests/limits
 
 https://github.com/pshche/k8s-security-lab/blob/main/screenshots/after/7-kubescape-after-excluded.png
 
-Итог: все критические и высокие риски для целевых неймспейсов устранены. Наличие FAIL в полном сканировании не является нарушением, так как они относятся к системным компонентам, которые не требуют исправления в рамках данного учебного проекта.
+### Итог: все критические и высокие риски для целевых неймспейсов устранены. Наличие FAIL в полном сканировании не является нарушением, так как они относятся к системным компонентам, которые не требуют исправления в рамках данного учебного проекта.
 
 Примечание по Falco: в кластере присутствует неймспейс falco, но он не настроен. Демонстрация событий Falco не требуется для выполнения опционального шага 6, так как основное требование (исправление двух проблем — вручную и через PSA) выполнено.
 
-3. Сравнительная таблица «До / После»
+# 3. Сравнительная таблица «До / После»
 Параметр	До исправления	После исправления
 Привилегированный контейнер	backend имеет privileged: true	Удалён, добавлен securityContext с runAsNonRoot: true
 Хранение секретов	Пароль в ConfigMap и hardcoded в frontend	Secrets, используются через secretKeyRef
@@ -172,7 +172,7 @@ SecurityContext контейнера	Отсутствует	Добавлен: al
 Kubescape (NSA) для frontend/backend	Множество FAIL	Все проверки PASS
 
 
-4. Заключение
+# 4. Заключение
 Все шесть шагов задания выполнены:
 
 ✅ Шаг 1 (диагностика) – выявлены 5 типов проблем, использованы JSONPath-команды, Kubescape запущен, отчёт создан.
