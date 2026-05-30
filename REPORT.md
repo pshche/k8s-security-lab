@@ -142,16 +142,18 @@ https://github.com/pshche/k8s-security-lab/blob/main/screenshots/after/6-kubesca
 
 bash
 kubescape scan framework nsa --exclude-namespaces kube-system,kube-public,calico-system,falco,kyverno,tigera-operator,trivy-system
-Результат: 0 FAIL, все проверки PASS.
 
-Контроль	Статус	Комментарий
-Privileged container	PASS	Удалён privileged: true
-Secrets in environment variables	PASS	Миграция на Secrets
-Default ServiceAccount	PASS	Используется frontend-sa
-SecurityContext	PASS	Добавлен в оба Deployment
-Network Policies	PASS	Созданы и проверены
-Non-root containers	PASS	Пользователи 101/999
-CPU/Memory limits	PASS	Добавлены requests/limits
+### Результат: 0 FAIL, все проверки PASS.
+
+| Контроль | Статус | Комментарий |
+|----------|--------|--------------|
+| Privileged container | PASS | Удалён `privileged: true` |
+| Secrets in environment variables | PASS | Миграция на Secrets |
+| Default ServiceAccount | PASS | Используется `frontend-sa` |
+| SecurityContext | PASS | Добавлен в оба Deployment |
+| Network Policies | PASS | Созданы и проверены |
+| Non-root containers | PASS | Пользователи 101/999 |
+| CPU/Memory limits | PASS | Добавлены requests/limits |
 
 https://github.com/pshche/k8s-security-lab/blob/main/screenshots/after/7-kubescape-after-excluded.png
 
@@ -159,17 +161,19 @@ https://github.com/pshche/k8s-security-lab/blob/main/screenshots/after/7-kubesca
 
 Примечание по Falco: в кластере присутствует неймспейс falco, но он не настроен. Демонстрация событий Falco не требуется для выполнения опционального шага 6, так как основное требование (исправление двух проблем — вручную и через PSA) выполнено.
 
-# 3. Сравнительная таблица «До / После»
-Параметр	До исправления	После исправления
-Привилегированный контейнер	backend имеет privileged: true	Удалён, добавлен securityContext с runAsNonRoot: true
-Хранение секретов	Пароль в ConfigMap и hardcoded в frontend	Secrets, используются через secretKeyRef
-ServiceAccount	Поды используют default SA	frontend использует frontend-sa
-Wildcard RBAC	Существует unsafe-role с *:*	Роль не привязана к целевым SA
-Pod Security	PSA не настроен	Для backend включён baseline; привилегированные поды блокируются
-Сетевая изоляция	Нет Network Policies	frontend – полная изоляция; backend – доступ только из frontend на порт 5432
-SecurityContext контейнера	Отсутствует	Добавлен: allowPrivilegeEscalation: false, capabilities.drop: ["ALL"]
-Ресурсы (limits/requests)	Отсутствуют	Добавлены для обоих Deployment
-Kubescape (NSA) для frontend/backend	Множество FAIL	Все проверки PASS
+## 3. Сравнительная таблица «До / После»
+
+| Параметр | До исправления | После исправления |
+|----------|----------------|--------------------|
+| Привилегированный контейнер | `backend` имеет `privileged: true` | Удалён, добавлен `securityContext` с `runAsNonRoot: true` |
+| Хранение секретов | Пароль в ConfigMap и hardcoded в `frontend` | Secrets, используются через `secretKeyRef` |
+| ServiceAccount | Поды используют `default` SA | `frontend` использует `frontend-sa` |
+| Wildcard RBAC | Существует `unsafe-role` с `*:*` | Роль не привязана к целевым SA |
+| Pod Security | PSA не настроен | Для `backend` включён `baseline`; привилегированные поды блокируются |
+| Сетевая изоляция | Нет Network Policies | `frontend` – полная изоляция; `backend` – доступ только из `frontend` на порт 5432 |
+| SecurityContext контейнера | Отсутствует | Добавлен: `allowPrivilegeEscalation: false`, `capabilities.drop: ["ALL"]` |
+| Ресурсы (limits/requests) | Отсутствуют | Добавлены для обоих Deployment |
+| Kubescape (NSA) для `frontend`/`backend` | Множество FAIL | Все проверки PASS |
 
 
 # 4. Заключение
