@@ -42,10 +42,12 @@ K8S-SECURITY-LAB/
 │       └── 7-kubescape-after-excluded.png
 ├── README.md
 └── REPORT.md
+```
 
-Применение манифестов
+## Применение манифестов
+https://github.com/pshche/k8s-security-lab/blob/main/screenshots/after/0-Manifest-usings.png
 
-bash
+```bash
 # 1. RBAC
 kubectl apply -f manifests/1-rbac-frontend.yaml
 
@@ -65,28 +67,38 @@ kubectl apply -f manifests/7-network-policy-frontend.yaml
 kubectl label ns backend pod-security.kubernetes.io/enforce=baseline --overwrite
 # или kubectl apply -f manifests/8-psa-namespace-backend.yaml
 Скриншот успешного применения всех манифестов: 0-Manifest-usings.png.
+```
 
-Ключевые проверки
+## Ключевые проверки
 RBAC:
-bash
+```bash
 kubectl auth can-i get pods --as=system:serviceaccount:frontend:frontend-sa -n frontend   # yes
 kubectl auth can-i delete pods --as=system:serviceaccount:frontend:frontend-sa -n frontend # no
-Секреты:
-bash
+#Секреты:
 kubectl exec <frontend-pod> -n frontend -- env | grep DB_PASSWORD   # значение из Secret
-PSA:
-bash
+#PSA:
 kubectl run test-priv --image=nginx --privileged -n backend
 # Error: violates PodSecurity "baseline:latest": privileged
-Network Policies:
-Из default → Connection timed out
+#Network Policies: Из default → Connection timed out
+#Из frontend с меткой app=frontend → соединение устанавливается
+```
 
-Из frontend с меткой app=frontend → соединение устанавливается
+# Результаты
 
-Результаты
-✅ Устранены 5 типов уязвимостей (привилегированные контейнеры, секреты в ConfigMap, hardcoded env, default SA, wildcard RBAC).
+# 4. Заключение
+Все шесть шагов задания выполнены:
 
-✅ Kubescape (сканирование только frontend/backend) показывает 0 FAIL.
+✅ Шаг 1 (диагностика) – выявлены 5 типов проблем, использованы JSONPath-команды, Kubescape запущен, отчёт создан.
 
-✅ Полный отчёт с таблицей «До/После» находится в REPORT.md.
+✅ Шаг 2 (RBAC) – созданы ServiceAccount, Role (без wildcard), RoleBinding, Deployment обновлён, права проверены.
 
+✅ Шаг 3 (миграция секретов) – созданы Secrets, Deployments используют secretKeyRef, доступность проверена.
+
+✅ Шаг 4 (безопасность подов) – удалён privileged, добавлен securityContext, включён PSA baseline, блокировка подтверждена.
+
+✅ Шаг 5 (сетевая изоляция) – созданы Network Policies, трафик из default блокируется, из frontend разрешён.
+
+✅ Шаг 6 (сканирование) – выполнены два сканирования Kubescape, исправлены две проблемы (вручную и через PSA), результаты задокументированы. Полное сканирование показывает FAIL только в системных неймспейсах, что не является нарушением. Сканирование целевых неймспейсов даёт 0 FAIL.
+
+### Подробная информация в Report.md
+https://github.com/pshche/k8s-security-lab/blob/main/REPORT.md
